@@ -49,7 +49,7 @@ pip install --upgrade pip
 # 📦 Install core packages (curated)
 echo "📦 Installing core packages..."
 pip install \
-    "numpy>=1.25" \
+    "numpy>=1.25,<2.0.0" \
     "pandas>=2.2" \
     "scikit-learn>=1.3" \
     "scipy>=1.11" \
@@ -142,7 +142,7 @@ echo "📦 Writing clean requirements.txt..."
 
 cat <<EOF > requirements.txt
 # Core packages
-numpy>=1.25
+numpy>=1.25,<2.0.0
 pandas>=2.2
 scikit-learn>=1.3
 scipy>=1.11
