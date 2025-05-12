@@ -41,7 +41,6 @@ source .venv/bin/activate
 
 📂 Folder Structure
 ├── data/               # (empty) Place datasets here
-├── notebooks/          # Jupyter experiments
 ├── envsetup.sh         # Script for Linux/macOS setup
 ├── requirements.txt    # Dependencies
 ├── .env                # Project settings (auto-created)
