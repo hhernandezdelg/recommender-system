@@ -49,16 +49,16 @@ pip install --upgrade pip
 # 📦 Install core packages (curated)
 echo "📦 Installing core packages..."
 pip install \
-    numpy>=1.25 \
-    pandas>=2.2 \
-    scikit-learn>=1.3 \
-    scipy>=1.11 \
+    "numpy>=1.25" \
+    "pandas>=2.2" \
+    "scikit-learn>=1.3" \
+    "scipy>=1.11" \
     ipykernel \
-    ipython>=8.0 \
+    "ipython>=8.0" \
     jupyter_client \
     matplotlib-inline \
-    matplotlib>=3.8 \
-    pillow>=10.0 \
+    "matplotlib>=3.8" \
+    "pillow>=10.0" \
     joblib \
     tqdm \
     psutil \
@@ -77,8 +77,9 @@ fi
 python3 -m ipykernel install --user --name="$ENV_NAME" --display-name "Python ($ENV_NAME)"
 
 # 📝 Create .env file
-read -p "📁 Enter DATA_PATH (default: ./data): " datapath
-datapath=${datapath:-./data}
+# Set data path and create the folder
+datapath="./data"
+mkdir -p "$datapath"
 
 cat <<EOF > .env
 # Environment variables
