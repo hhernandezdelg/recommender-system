@@ -73,3 +73,28 @@ See requirements.txt for the full list.
     - Python Environments
 - Select a Python environment:
     - * .venv (Python 3.10.12).venv/bin/python3
+
+
+
+✅  Our work strategy:
+
+1. Divide the work:
+
+    notebooks/q1_name1.ipynb
+    notebooks/q2_name2.ipynb
+
+    ...
+    Each person creates their notebook and works on their assigned question independently.
+    💡 Put the question number and your name in the file name — it prevents chaos.
+
+2. Use branches to work safely (hopefully)
+Each person creates a Git branch:
+
+git checkout -b q1-name1
+# work, commit, push
+
+Push your branch:
+git push origin q1-name1
+
+3. Designate one person to create the final notebook (I can do that)
+final_submission.ipynb
