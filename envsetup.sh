@@ -63,7 +63,8 @@ pip install \
     tqdm \
     psutil \
     sympy \
-    networkx
+    networkx \
+    kagglehub
 
 # ⚙️ Install PyTorch GPU version unless --minimal passed
 if [[ "$1" != "--minimal" ]]; then
@@ -165,6 +166,7 @@ psutil
 # Optional (symbolic math / graph)
 sympy
 networkx
+kagglehub
 
 # NOTE: PyTorch is installed separately via envsetup.sh
 EOF

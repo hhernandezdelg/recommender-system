@@ -66,3 +66,10 @@ source .venv/bin/activate
     Jupyter, ipykernel
 
 See requirements.txt for the full list.
+
+
+✅  When running notebook:
+- Select kernel:
+    - Python Environments
+- Select a Python environment:
+    - * .venv (Python 3.10.12).venv/bin/python3
