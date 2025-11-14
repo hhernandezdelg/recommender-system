@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment config
+.env
+
+# #Data
+data/
+
+# VS Code settings
+.vscode/
+
+# Model checkpoints
+*.pt
+/notebooks/output/
