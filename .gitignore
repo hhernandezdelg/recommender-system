@@ -12,11 +12,11 @@ __pycache__/
 .env
 
 # #Data
-# data/
+data/
 
 # VS Code settings
 .vscode/
 
-#model
-last_model.ptnotebooks/last_model_*.pt
+# Model checkpoints
 *.pt
+/notebooks/output/
