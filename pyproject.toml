@@ -1,0 +1,26 @@
+[project]
+name = "fashion-metric-learning"
+version = "0.1.0"
+description = "Fashion image classification and metric learning project with modular training and evaluation code"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Deep(seek) learners" }
+]
+dependencies = [
+    "torch",
+    "torchvision",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "kagglehub",
+    "tqdm",
+    "ipykernel",
+    "ipywidgets",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
