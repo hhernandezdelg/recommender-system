@@ -1,0 +1,12 @@
+# Requirements aligned with pyproject.toml
+torch
+torchvision
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+kagglehub
+tqdm
+ipykernel
+ipywidgets
