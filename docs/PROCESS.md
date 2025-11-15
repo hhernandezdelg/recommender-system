@@ -1,7 +1,7 @@
 # Fashion Recommender Pipeline
 
 ## Introduction
-This document explains the end to end workflow implemented in the fashion recommender learning project. The goal is to guide any reviewer and collaborator through the dataset preparation, the four main tasks, and the resulting analyses The objective is that each section can be mapped to a specific task in the notebooks.
+This document explains the end to end workflow implemented in the fashion recommender learning project. The goal is to guide any reviewers and collaborators through the dataset preparation, the four main tasks, and the resulting analyses. The objective is that each section can be mapped to a specific task in the notebooks.
 
 ## Dataset Summary
 The Fashion Product Images collection provides approximately 44k pictures of clothing and accessories. Each image belongs to one of sixty nine article types. The assignment defines curated splits: the main classes train split with 39 classes, the main classes test split with the same label space, the new classes test split that covers 30 previously **unseen** classes, and dedicated support splits for both groups. All notebooks load the metadata stored in the `data` directory and access the raw images through the Kaggle mirror exposed by `kagglehub`. Every transform resizes an images and normalizes it.
@@ -27,14 +27,13 @@ $$
 \text{balanced accuracy} = \frac{1}{C} \sum_{c=1}^{C} \frac{1}{|D_c|} \sum_{(x_i,y_i) \in D_c} \mathbf{1}\{\hat{y}_i = c\},
 $$
 
-with $D_c$ the subset of samples belonging to class $c$. Reporting both measures satisfies the assignment requirement and highlights model behaviour on rare classes.
+with $D_c$ the subset of samples belonging to class $c$.
 
 ## Task 2: Metric Learning for Emerging Styles
 Task 2 requires a model that learns dense embeddings and is able to generalize to **new unseen classes**. The same convolutional backbone is reused but the classifier output (softmax function) is skipped and the logits are normalized to unit length. Training employs the Triplet Loss function, which encourages embeddings of similar items to be closer together than embeddings of dissimilar items by at least a defined **margin (0.2)**. The margin is a hyperparameter for this type of training, here we found 0.2 to be most optimal. Because enumerating all triplets is infeasible, a balanced batch sampler creates batches containing an equal number of samples per class, and the triplet selector mines semi-hard negatives whenever available while falling back to hard negatives otherwise. Training runs for seventy epochs with stochastic gradient descent and momentum. Mixed precision speeds up computation and Recall (@k=5) on the validation batches monitors quality. After training, the notebook saves the embedding network weights to `notebooks/output/metric_learning/metric_model.pt`.
 
 For a theoretical background we follow the triplet-loss formulation introduced by [Schroff et al., FaceNet](https://arxiv.org/abs/1503.03832), which explains how semi-hard negative mining stabilises metric learning.
 
-Let $f_\theta(x) \in \mathbb{R}^{d}$ denote the embedding extracted by the network after $L_2$ normalization. For every anchor $x_a$ with positive $x_p$ from the same class and negative $x_n$ from a different class, the triplet loss is
 Let $f_\theta(x) \in \mathbb{R}^{d}$ denote the embedding extracted by the network after $L_2$ normalization. For every anchor $x_a$ with positive $x_p$ from the same class and negative $x_n$ from a different class, the triplet loss is
 
 $$
@@ -78,7 +77,8 @@ For a threshold $\tau$, coverage and error rate are defined as
 $$
 \text{coverage}(\tau) = \frac{|\{t : c(t) \ge \tau\}|}{N}, \qquad \text{error}(\tau) = \frac{|\{t : c(t) \ge \tau, \hat{y}(t) \neq y(t)\}|}{|\{t : c(t) \ge \tau\}|}.
 $$
-Plotting error against coverage while varying \(\tau\) reproduces the required trade off curve.
+
+Plotting error against coverage while varying $\tau$ reproduces the required trade off curve.
 
 ## Task 4: Beyond Labels
 In this task, analyses of the learned feature space is taken place qualitatively. First, the distributed stochastic neighbor embedding (t-SNE) projects the embeddings of the first ten classes onto two dimensions for both the training and test splits, revealing distinct clusters for accessories and overlap for visually similar items such as shirts and kurtas. We repeat the same analysis (t-SNE) for the category level, which confirms that items from the same broader category stay close in the feature space. Next, a confusion matrix is computed using the ten class subset of the main support and main test splits, highlighting misclassifications predicted from the t SNE plots. The shirt versus t shirt study computes centroids for each class and visualizes the interpolation path between them, demonstrating that the feature manifold changes smoothly. Finally, the top three recommendation visualization shows how the confidence filtered retrieval behaves on real samples, aligning with the Task 3 recommendation system.
