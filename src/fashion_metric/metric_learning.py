@@ -16,7 +16,9 @@ from IPython.display import clear_output
 
 class BalancedBatchSampler(BatchSampler):
     """
-    Returns batches of size n_classes * n_samples (Task 2).
+    Returns batches of size n_classes * n_samples.
+    Each batch contains n_classes different classes and n_samples samples for each class.
+    Used for training with triplet loss.
     """
 
     def __init__(self, labels: Iterable[int], n_classes: int, n_samples: int):
@@ -65,7 +67,8 @@ class BalancedBatchSampler(BatchSampler):
 
 class TripletLoss(nn.Module):
     """
-    Triplet loss as used in Task 2.
+    Triplet loss with semi hard negative mining.
+    Encourages the model to learn embeddings where an anchor is closer to positive examples than to negative examples by at least a margin.
     """
 
     def __init__(self, margin: float, triplet_selector: "InformativeNegativeTripletSelector"):
@@ -74,23 +77,31 @@ class TripletLoss(nn.Module):
         self.triplet_selector = triplet_selector
 
     def forward(self, embeddings: torch.Tensor, target: torch.Tensor):
+        # Select triplets using the provided triplet selector
         triplets = self.triplet_selector.get_triplets(embeddings, target)
 
         if embeddings.is_cuda:
+            # Move triplets to GPU if embeddings are on GPU
             triplets = triplets.cuda()
 
+        # Unpack triplet indices
         anchor_idx = triplets[:, 0]
         positive_idx = triplets[:, 1]
         negative_idx = triplets[:, 2]
 
+        # Compute squared distances for positive and negative pairs
         dist_pos = (embeddings[anchor_idx] - embeddings[positive_idx]).pow(2).sum(1)
         dist_neg = (embeddings[anchor_idx] - embeddings[negative_idx]).pow(2).sum(1)
 
+        # Compute triplet loss with margin
         losses = F.relu(dist_pos - dist_neg + self.margin)
         return losses.mean()
 
 
 def pdist(vectors: torch.Tensor) -> torch.Tensor:
+    """
+    Computes the pairwise squared Euclidean distance matrix for a set of vectors.
+    """
     distance_matrix = (
         -2 * vectors.mm(torch.t(vectors))
         + vectors.pow(2).sum(dim=1).view(1, -1)
@@ -103,6 +114,8 @@ class InformativeNegativeTripletSelector:
     """
     Implements a strategy to mine informative negative examples for triplet loss training. 
     It prefers semi hard negatives when they exist and falls back to the hardest negatives otherwise.
+    Semi hard negatives are those that are farther from the anchor than the positive but still within the margin.
+    Refer to the docs/ for more details on semi hard negative and hard negative mining.
     """
 
     def __init__(self, margin: float):
@@ -111,39 +124,63 @@ class InformativeNegativeTripletSelector:
     def get_triplets(self, embeddings: torch.Tensor, labels: torch.Tensor):
         if not torch.cuda.is_available():
             embeddings = embeddings.cpu()
+        
+        # Compute pairwise distance matrix
         distance_matrix = pdist(embeddings)
         distance_matrix = distance_matrix.cpu()
 
+        # Convert labels to numpy for easier indexing
         labels_np = labels.cpu().data.numpy()
+        
         triplets = []
-
+        # Iterate over each unique label to form anchor-positive pairs
         for label in set(labels_np):
+            # Find indices for the current label
             label_mask = labels_np == label
+
+            # Get all indices for this label
             label_indices = np.where(label_mask)[0]
+            
+            # Skip if less than two examples for this label
             if len(label_indices) < 2:
                 continue
+
+            # Get all indices for negative examples
             negative_indices = np.where(np.logical_not(label_mask))[0]
+
+            # Generate all possible anchor-positive pairs for this label
             anchor_positives = list(combinations(label_indices, 2))
+
+            # Convert to numpy array for easier indexing
             anchor_positives = np.array(anchor_positives)
 
+
+            # Extract distances for anchor-positive and anchor-negative pairs
             anchor_indices = anchor_positives[:, 0]
             positive_indices = anchor_positives[:, 1]
 
+            # Compute distances
             dist_pos = distance_matrix[anchor_indices, positive_indices]
             dist_neg = distance_matrix[anchor_indices][:, negative_indices]
 
+            # Mask selects negatives that lie in the semi hard band relative to each anchor positive pair
             mask = (dist_neg > dist_pos[:, None]) & (
                 dist_neg < (dist_pos + self.margin)[:, None]
             )
+
+            # Get valid negative indices for each anchor-positive pair
             valid_idx = mask.nonzero(as_tuple=False)
 
+            # For each anchor-positive pair, select a negative example
             for i in range(len(anchor_positives)):
                 negs_i = valid_idx[valid_idx[:, 0] == i][:, 1]
                 if len(negs_i) > 0:
+                    # Semi hard negatives provide informative gradients without destabilising training
                     neg_idx = negative_indices[
                         negs_i[torch.randint(len(negs_i), ())]
                     ]
                 else:
+                    # When no semi hard negative exists we fall back to the hardest example to avoid wasting the triplet
                     neg_idx = negative_indices[dist_neg[i].argmin()]
 
                 triplets.append(
@@ -155,7 +192,9 @@ class InformativeNegativeTripletSelector:
 
 class Trainer:
     """
-    Metric-learning trainer from Task 2 (TripletLoss + embeddings).
+    Trainer class to handle the training loop for metric learning with triplet loss. 
+    It manages training and validation phases, loss computation, backpropagation with mixed precision,
+    and tracks metrics like Recall@k. It also provides live plotting of loss and recall during
     """
 
     def __init__(
@@ -207,6 +246,7 @@ class Trainer:
                 loss_value = loss.item()
                 train_losses.append(loss_value)
 
+                # Explicit deletion helps prevent GPU memory fragmentation during long training runs
                 del input, target, out, loss
                 torch.cuda.empty_cache()
 
@@ -245,8 +285,8 @@ class Trainer:
                 print(f"LOSS: {np.mean(train_losses):.4f}", end=" ")
                 print(f"VAL-LOSS: {np.mean(valid_losses):.4f}", end="\n")
 
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
+                torch.cuda.empty_cache()    # Clear GPU cache to free memory
+                torch.cuda.ipc_collect()    # Collect inter-process GPU memory
 
             # Persist history for later plotting
             self.train_loss_history.append(float(np.mean(train_losses)))
@@ -277,6 +317,7 @@ def plot_embeddings_live(
     embeddings_np = embeddings.detach().cpu().numpy()
     labels_np = labels.detach().cpu().numpy()
 
+    # Subsample for visualization if too many points
     if len(embeddings_np) > max_points:
         idx = np.random.choice(len(embeddings_np), max_points, replace=False)
         embeddings_np = embeddings_np[idx]
@@ -351,13 +392,19 @@ def compute_recall_at_k(
     """
     embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
 
+    # Compute cosine similarity matrix
     sim_matrix = embeddings @ embeddings.T
 
+    # Exclude self-similarity by setting diagonal to -inf
     sim_matrix.fill_diagonal_(-float("inf"))
 
+    # Get top k indices for each embedding
     topk_indices = torch.topk(sim_matrix, k=k, dim=1).indices
 
+    # Check if any of the top k neighbors have the same label
     topk_labels = labels[topk_indices]
+
+    # Determine if at least one of the top k labels matches the true label
     correct = (topk_labels == labels.unsqueeze(1)).any(dim=1)
 
     recall_at_k = correct.float().mean().item()

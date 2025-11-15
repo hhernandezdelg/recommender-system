@@ -27,6 +27,8 @@ def extract_embeddings(
     with torch.no_grad():
         for images, targets in dataloader:
             images = images.to(device)
+
+            # Get embeddings
             emb = model.get_embedding(images).cpu().numpy()
             embeddings[k : k + len(images)] = emb
             labels[k : k + len(images)] = targets.numpy()
@@ -44,7 +46,7 @@ def evaluate_knn(
     name: str | None = None,
 ):
     """
-    kNN evaluation in embedding space, as in Task 2.
+    kNN evaluation in embedding space.
     Returns (test_labels, predicted_labels).
     """
     support_embeddings, support_labels = extract_embeddings(
@@ -54,12 +56,18 @@ def evaluate_knn(
         test_loader, model, device=device
     )
 
+    # Embeddings are normalised so that cosine similarity reduces to a dot product
     support_embeddings = F.normalize(torch.tensor(support_embeddings), dim=1)
     test_embeddings = F.normalize(torch.tensor(test_embeddings), dim=1)
 
+    # Compute cosine similarity between test and support embeddings
     sim_matrix = torch.matmul(test_embeddings, support_embeddings.T)
+
+    # Get top-k nearest neighbors
     topk_indices = torch.topk(sim_matrix, k=k, dim=1).indices
     topk_labels = support_labels[topk_indices]
+
+    # Majority vote
     predicted_labels, _ = mode(topk_labels, axis=1)
     predicted_labels = predicted_labels.squeeze()
 
@@ -75,12 +83,16 @@ def compute_correct_counts(
     """
     Computes, for each query, how many of the top-k matches have the correct class.
     """
+    # Get top-k matches
     topk_scores, topk_indices = torch.topk(sim_matrix, k=k, dim=1)
     device = sim_matrix.device
+
+    # Convert labels to tensors
     support_labels = torch.tensor(support_labels).to(device)
     test_labels = torch.tensor(test_labels).to(device)
     topk_labels = support_labels[topk_indices]
 
+    # Count correct matches
     correct_counts = (topk_labels == test_labels.unsqueeze(1)).sum(dim=1)
     return correct_counts.cpu().numpy(), topk_scores.cpu().numpy()
 
@@ -94,6 +106,7 @@ def compute_coverage_error_from_counts(
     Computes coverage and error-rate curves as a function of confidence threshold.
     """
     if taus is None:
+        # Define confidence thresholds
         taus = np.linspace(0, 1, 50)
 
     coverages = []
@@ -102,16 +115,22 @@ def compute_coverage_error_from_counts(
 
     total_samples = len(confidences)
 
+    # Iterate over confidence thresholds
     for tau in taus:
         mask = confidences >= tau
         if mask.sum() == 0:
             continue
 
+        # Select samples with confidence above the threshold
         shown_counts = correct_counts[mask]
 
+        #  Coverage measures the proportion of samples with confidence above the threshold
         coverage = mask.sum() / total_samples
+
+        # Error measures the proportion of displayed recommendations that contain incorrect neighbors
         error = np.sum(shown_counts == 0) / len(shown_counts)
 
+        # Store results
         coverages.append(coverage * 100)
         error_rates.append(error * 100)
         used_thresholds.append(tau)
@@ -127,24 +146,35 @@ def plot_error_coverage_curve(
     k: int = 3,
 ):
     """
-    Error vs coverage plot, with identical layout to Task 3.
+    Error vs coverage plot
     """
+    # Extract embeddings
     support_embs, support_labels = extract_embeddings(
         support_loader, model, device=device
     )
     test_embs, test_labels = extract_embeddings(test_loader, model, device=device)
+
+    # Both support and test embeddings are moved to the target device to avoid repeated transfers during the similarity calculation
     support_embs = F.normalize(torch.tensor(support_embs), dim=1).to(device)
     test_embs = F.normalize(torch.tensor(test_embs), dim=1).to(device)
+
+    # Compute cosine similarity between test and support embeddings
     sim_matrix = torch.matmul(test_embs, support_embs.T)
 
+    # Compute correct counts and top scores
     correct_counts, top_scores = compute_correct_counts(
         sim_matrix, test_labels, support_labels, k=k
     )
+
+    # Compute confidences as average of top-k scores
     confidences = top_scores.mean(axis=1)
+    
+    # Compute error rates
     coverages, error_rates, taus = compute_coverage_error_from_counts(
         confidences, correct_counts
     )
 
+    # Plot error vs coverage curve
     taus = np.array(taus)
     norm = colors.Normalize(vmin=0.5, vmax=1)
     plt.figure(figsize=(6, 5))
@@ -165,6 +195,7 @@ def plot_error_coverage_curve(
         label="τ points",
     )
 
+    # Annotate specific tau values
     for err, cov, tau in zip(error_rates, coverages, taus):
         if np.round(tau, 2) in [0.9, 0.8, 0.7]:
             plt.annotate(
@@ -175,8 +206,10 @@ def plot_error_coverage_curve(
                 fontsize=9,
             )
 
+    # Highlight point closest to 10% error
     mask_2 = np.isclose(np.array(error_rates), 10.0, atol=0.2)
 
+    # Highlight point closest to 10% error
     if mask_2.any():
         best_idx_2 = np.argmax(np.array(coverages)[mask_2])
         error_2 = np.array(error_rates)[mask_2][best_idx_2]
@@ -194,6 +227,7 @@ def plot_error_coverage_curve(
         plt.axhline(cov_2, color="green", linestyle="--", linewidth=1)
         plt.axvline(error_2, color="green", linestyle="--", linewidth=1)
 
+    # Highlight best coverage under 10% error
     mask = np.array(error_rates) <= 10
     if mask.any():
         best_idx = np.argmax(np.array(coverages)[mask])

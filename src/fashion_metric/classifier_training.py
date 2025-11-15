@@ -136,6 +136,7 @@ class TransferLearnP2(nn.Module):
         avg_loss = epoch_loss / total
         acc = correct / total
 
+        # Compute balanced accuracy
         balanced_acc = balanced_accuracy_score(
             all_targets.numpy(), all_preds.numpy()
         )
@@ -163,6 +164,7 @@ class TransferLearnP2(nn.Module):
         test_acc: float | None = None,
         test_bal_acc: float | None = None,
     ):
+        # live plotting of training/validation metrics
         clear_output(wait=True)
         epochs = range(1, len(self.train_losses) + 1)
         plt.figure(figsize=(16, 5))
@@ -241,6 +243,7 @@ class TransferLearnP2(nn.Module):
         plt.ylabel("Balanced Accuracy")
         plt.legend()
 
+        # Metrics for each model are saved in a dedicated subdirectory so that cross validation folds do not overwrite each other
         save_dir_ = Path(save_dir) / self.model_name
         save_dir_.mkdir(parents=True, exist_ok=True)
         plt.tight_layout()
@@ -259,7 +262,7 @@ def train_transfer_model(
     fold: int | None = None,
 ) -> Dict[str, Any]:
     """
-    Trains a classification model on the provided data loaders and evaluates it on a held out test set. 
+    Trains a classification model and evaluates it on a held out test set. 
     The function logs metrics, plots learning curves and saves the trained weights and statistics to disk.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -267,8 +270,10 @@ def train_transfer_model(
 
     num_classes = config.get("num_classes", 39)
 
+    # Initialize model and trainer
     base_model = config["model_fn"](num_classes)
 
+    # Create trainer
     trainer = TransferLearnP2(
         base_model,
         num_classes=num_classes,
@@ -279,7 +284,7 @@ def train_transfer_model(
     optimizer = trainer.get_optimizer()
 
     for epoch in range(epochs):
-        # Standard supervised training loop
+        # Standard training loop
         train_loss, train_acc, train_bal_acc, _ = trainer.train_one_epoch(
             train_loader,
             optimizer=optimizer,
@@ -344,6 +349,7 @@ def train_transfer_model(
         test_bal_acc=test_balanced_acc,
     )
 
+    # The metrics dictionary contains full training curves as well as the scalar values used for reporting
     metrics = {
         "train_loss": trainer.train_losses,
         "train_acc": trainer.train_accs,

@@ -150,6 +150,7 @@ def plot_confusion_matrix(
 def denormalize(tensor, mean, std):
     mean = torch.tensor(mean).view(-1, 1, 1)
     std = torch.tensor(std).view(-1, 1, 1)
+    # Denormalisation reverses the preprocessing so that matplotlib receives pixel intensities in the expected range
     return tensor * std + mean
 
 
@@ -178,10 +179,12 @@ def show_top3_recommendations_same_class(
     support_labels = torch.tensor(support_labels).cpu()
     test_labels = torch.tensor(test_labels)
 
+    # Normalised embeddings allow cosine similarity to act as a pure inner product downstream
     support_embeddings = F.normalize(torch.tensor(support_embeddings), dim=1).to(device)
     test_embeddings = F.normalize(torch.tensor(test_embeddings), dim=1).to(device)
 
     num_test = test_embeddings.shape[0]
+    # Random sampling keeps the visualisation diverse between notebook executions
     indices_ = torch.randperm(num_test)[:n_samples]
     test_embeddings_subset = test_embeddings[indices_]
     test_labels_subset = test_labels[indices_]
@@ -193,6 +196,7 @@ def show_top3_recommendations_same_class(
     top_indices = top_indices.cpu()
     top_labels = support_labels[top_indices]
 
+    # Confidence value summarises how close the query is to its retrieved neighbours which guides selective display
     confidences = top_scores.mean(axis=1)
 
     shown = 0

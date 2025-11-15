@@ -7,9 +7,9 @@ import torch.nn.functional as F
 
 class CNET_HHD0_V44(nn.Module):
     """
-    Convolutional neural network used to extract features from fashion images and perform multi class classification. 
-    It stacks several convolutional blocks with pooling and dropout to build a compact representation from low resolution inputs. 
-    The classifier head maps the flattened features to the requested number of classes.
+    Convolutional Neural Network architecture for fashion image classification and embedding extraction.
+    Consists of multiple convolutional blocks for feature extraction followed by a classifier block.
+    The model can output either class probabilities or L2-normalized embeddings based on the forward method's return_embeddings flag.
     """
 
     def __init__(
@@ -70,7 +70,7 @@ class CNET_HHD0_V44(nn.Module):
             nn.Dropout(drop_1 + 0.2),
         )
 
-        # Compute flattened size
+        # Dummy forward pass determines the flattened dimensionality so the classifier can be constructed dynamically
         with torch.no_grad():
             x_dummy = torch.zeros(1, *input_shape)
             x_dummy = self.block1(x_dummy)
@@ -102,6 +102,7 @@ class CNET_HHD0_V44(nn.Module):
         probs = F.softmax(x, dim=1)
 
         if return_embeddings:
+            # Metric learning requires L2 normalised features so the same forward method serves both classification and embedding use cases
             x = F.normalize(feats, p=2, dim=1)
             return x
         return probs
@@ -113,6 +114,7 @@ class CNET_HHD0_V44(nn.Module):
         x = self.block4(x)
         x = self.block5(x)
         x = x.view(x.size(0), -1)
+        # The helper mirrors the embedding branch in forward which keeps Task 2 code concise and consistent
         return torch.nn.functional.normalize(x, p=2, dim=1)
 
 

@@ -24,13 +24,6 @@ class FashionDataset(Dataset):
         column_class: str = "articleTypeId",
         transform=None,
     ):
-        """
-        Args:
-            csv_file: Path to the CSV file with labels.
-            img_dir: Directory with all the images.
-            column_class: Column name containing the class / label id.
-            transform: Optional transform to be applied on a sample.
-        """
         self.df = pd.read_csv(csv_file)
         self.img_dir = Path(img_dir)
         self.transform = transform
@@ -46,6 +39,7 @@ class FashionDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
+        # Returning the raw label alongside the tensor keeps the dataset flexible for classification and embedding tasks
         return image, self.targets[idx]
 
 
@@ -54,6 +48,7 @@ def build_train_transform():
     Builds the image transform used during training. It applies small rotations, 
     color jittering, resizing and normalization so that the model sees slightly varied but consistently scaled inputs.
     """
+    # Augmented transform improves robustness to subtle photographic variations and item pose changes
     return transforms.Compose(
         [
             transforms.RandomRotation(degrees=2),
@@ -76,6 +71,7 @@ def build_eval_transform():
     Builds the image transform used for validation and testing. 
     It only resizes and normalizes the images so that evaluation is performed on a stable and comparable representation.
     """
+    # Evaluation transform guarantees that validation and test sets are treated identically which keeps metrics comparable
     return transforms.Compose(
         [
             transforms.Resize((60, 80)),
@@ -103,14 +99,18 @@ def build_all_datasets(
     img_dir = Path(img_dir)
     data_path = Path(data_path)
 
+    # Transforms for training and evaluation
     transform_train = build_train_transform()
     transform_eval = build_eval_transform()
 
+    # Datasets without categories
     train_dataset = FashionDataset(data_path / "train.csv", img_dir, transform=transform_eval)
     main_test_dataset = FashionDataset(data_path / "main_test.csv", img_dir, transform=transform_eval)
     new_test_dataset = FashionDataset(data_path / "new_test.csv", img_dir, transform=transform_eval)
     main_support_dataset = FashionDataset(data_path / "main_support.csv", img_dir, transform=transform_eval)
     new_support_dataset = FashionDataset(data_path / "new_support.csv", img_dir, transform=transform_eval)
+
+    # Merged datasets
     merged_test_dataset = FashionDataset(
         data_path / "merged_test.csv",
         img_dir,
@@ -168,16 +168,20 @@ def build_classifier_dataloaders(
     img_dir = Path(img_dir)
     data_path = Path(data_path)
 
+    # Transforms for training and evaluation
     transform_train = build_train_transform()
     transform_eval = build_eval_transform()
 
+    # Full datasets from which subsets will be created
     train_dataset = FashionDataset(data_path / "train.csv", img_dir, transform=transform_train)
     val_dataset = FashionDataset(data_path / "train.csv", img_dir, transform=transform_eval)
     main_test_dataset = FashionDataset(data_path / "main_test.csv", img_dir, transform=transform_eval)
 
+    # Subsets ensure that each fold respects the specific indices provided by the cross validation split
     train_subset = Subset(train_dataset, train_idx)
     val_subset = Subset(val_dataset, val_idx)
 
+    # Data loaders for each split
     train_loader = DataLoader(
         train_subset,
         batch_size=batch_size,
