@@ -10,17 +10,23 @@ The Fashion Product Images collection provides approximately 44k pictures of clo
 Task 1 focuses on training a convolutional classifier that predicts the article type for the main classes. The architecture named `CNET_HHD0_V44` contains five convolutional blocks followed by a dense head. This convolutional network is used as transfer learning proxy, which has been used in different task domain (external domain tranfer learning). Each block applies convolution, batch normalization, GELU activation, max pooling, and dropout. The classifier head maps the flattened representation to 39 logits and applies batch normalization before the softmax. The training uses **cross entropy loss** and the **Adam optimizer**. Performance is measured with accuracy and balanced accuracy to account for the imbalanced test split. The notebook `task1_classifier_training.ipynb` performs five fold cross validation. Metrics for every epoch are plotted and stored, and the final evaluation on the untouched main test set appears at the end of each fold.
 
 Mathematically, let $D = \{(x_i, y_i)\}_{i=1}^N$ with labels $y_i \in \{1, \dots, C\}$ where $C = 39$. The network outputs logits $z_i \in \mathbb{R}^{C}$ which are turned into probabilities through softmax $p_{i,c} = \frac{\exp(z_{i,c})}{\sum_{k=1}^{C} \exp(z_{i,k})}$. Cross entropy loss for a batch becomes
+
 $$
 \mathcal{L}_{\text{CE}} = - \frac{1}{B} \sum_{i=1}^{B} \log p_{i, y_i}.
 $$
+
 Accuracy is computed as
+
 $$
 \text{accuracy} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\{\hat{y}_i = y_i\},
 $$
+
 where $\hat{y}_i = \arg\max_{c} p_{i,c}$, while balanced accuracy averages the per class recall
+
 $$
 \text{balanced accuracy} = \frac{1}{C} \sum_{c=1}^{C} \frac{1}{|D_c|} \sum_{(x_i,y_i) \in D_c} \mathbf{1}\{\hat{y}_i = c\},
 $$
+
 with $D_c$ the subset of samples belonging to class $c$. Reporting both measures satisfies the assignment requirement and highlights model behaviour on rare classes.
 
 ## Task 2: Metric Learning for Emerging Styles
@@ -29,13 +35,18 @@ Task 2 requires a model that learns dense embeddings and is able to generalize t
 For a theoretical background we follow the triplet-loss formulation introduced by [Schroff et al., FaceNet](https://arxiv.org/abs/1503.03832), which explains how semi-hard negative mining stabilises metric learning.
 
 Let $f_\theta(x) \in \mathbb{R}^{d}$ denote the embedding extracted by the network after $L_2$ normalization. For every anchor $x_a$ with positive $x_p$ from the same class and negative $x_n$ from a different class, the triplet loss is
+Let $f_\theta(x) \in \mathbb{R}^{d}$ denote the embedding extracted by the network after $L_2$ normalization. For every anchor $x_a$ with positive $x_p$ from the same class and negative $x_n$ from a different class, the triplet loss is
+
 $$
 \mathcal{L}_{\text{triplet}} = \max\left( \|f_\theta(x_a) - f_\theta(x_p)\|_2^2 - \|f_\theta(x_a) - f_\theta(x_n)\|_2^2 + \alpha, 0 \right)
 $$
+
 with $\alpha = 0.2$. Semi hard negatives satisfy $\|f_\theta(x_a) - f_\theta(x_p)\|_2^2 < \|f_\theta(x_a) - f_\theta(x_n)\|_2^2 < \|f_\theta(x_a) - f_\theta(x_p)\|_2^2 + \alpha$, ensuring informative yet stable gradients. Model quality is evaluated with Recall at $k$,
+
 $$
 \text{Recall@}k = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\{\exists j \in \mathcal{N}_k(i) : y_j = y_i\},
 $$
+
 where $\mathcal{N}_k(i)$ contains the $k$ nearest neighbours of embedding $f_\theta(x_i)$ under cosine similarity. Monitoring Recall at five ensures that at least one of the retrieved neighbours matches the query class.
 
 ## Task 3: Recommendation System
@@ -51,14 +62,19 @@ The recommendation task leverages the learned embeddings to retrieve similar pro
 the embeddings are extracted with the trained metric model. Cosine similarity is applied between normalized embeddings, and a k nearest neighbor search (k=3) assigns labels by majority vote. Accuracy and balanced accuracy are reported for every scenario, matching the required table. The notebook also defines a confidence score for each recommendation, computed as the mean cosine similarity of the top 3 matches. By sweeping a threshold on that score, the system produces an error-coverage curve. The curve shows that targeting an error of ten percent yields roughly ninety five percent coverage, while one hundred percent coverage corresponds to an error of about eleven and a half percent.
 
 Given a normalized test embedding $t$ and support embeddings $\{s_j\}$, cosine similarity simplifies to the dot product $\text{sim}(t, s_j) = t^\top s_j$. For each test sample we select the set $\mathcal{S}_k(t)$ of the $k = 3$ most similar support embeddings and predict the label through majority vote:
+
 $$
 \hat{y}(t) = \text{mode}\{ y_j : s_j \in \mathcal{S}_k(t) \}.
 $$
+
 The confidence score used for the error coverage analysis equals the mean similarity of the retrieved neighbours
+
 $$
 c(t) = \frac{1}{k} \sum_{s_j \in \mathcal{S}_k(t)} \text{sim}(t, s_j).
 $$
+
 For a threshold $\tau$, coverage and error rate are defined as
+
 $$
 \text{coverage}(\tau) = \frac{|\{t : c(t) \ge \tau\}|}{N}, \qquad \text{error}(\tau) = \frac{|\{t : c(t) \ge \tau, \hat{y}(t) \neq y(t)\}|}{|\{t : c(t) \ge \tau\}|}.
 $$
